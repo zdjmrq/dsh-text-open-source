@@ -9,7 +9,7 @@
 
 ## 1. 插件概述
 
-dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之间无法互相发现与协作**的问题：每个对话是一个独立 Agent，默认彼此看不见。本插件在宿主侧注册一个 Typert Remote 服务 `ctx.remote.intercom` 和 13 个 `intercom_*` 模型工具，在网页侧提供一个聊天式「通信中心」面板，让对话可以：发现其他活跃对话（含工作区与忙碌状态）、私聊投递（唤醒/排队/介入三种模式）、组建协作群（对话群）并广播、发现并**唤醒休眠的历史对话继续工作（延续工作）**。核心价值是让对话在需要时**自动协调其他对话**——请求帮助、并行合作、延续旧工作，而无需人类手工传话。
+dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之间无法互相发现与协作**的问题：每个对话是一个独立 Agent，默认彼此看不见。本插件在宿主侧注册一个 Typert Remote 服务 `ctx.remote.intercom` 和 14 个 `intercom_*` 模型工具，在网页侧提供一个聊天式「通信中心」面板，让对话可以：发现其他活跃对话（含工作区与忙碌状态）、私聊投递（唤醒/排队/介入三种模式）、组建协作群（对话群）并广播、发现并**唤醒休眠的历史对话继续工作（延续工作）**。核心价值是让对话在需要时**自动协调其他对话**——请求帮助、并行合作、延续旧工作，而无需人类手工传话。
 
 适用场景：多对话并行推进同一项目时的分工与汇总；向另一个正在跑的对话发协作请求并等待回执；把一个历史会话拉起来继续它未完成的任务。它与用户的 `dsh-plugin-suite`（局部 fork 套件，含 `dsh-restart-plugin`、`dsh-careful-full-access`）以及本「文字开源」枢纽中的其他 `dsh-*` 描述文件配套：intercom 是这些对话之间的“通信总线”。
 
@@ -20,14 +20,14 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
 ### 面板（Client 半）
 
 - **通信中心入口**：侧栏底部「通信中心」按钮（链接图标 + 文字，`sidebar.footer.action` slot）与每个会话头部图标按钮（`conversation.session.header.actions` slot）。点击开关面板。
-- **双栏聊天面板**：注册于 `shell.overlay` slot 的悬浮面板（宽 680px、高 min(76vh,560px)，DSH 主题色 `--dsw-alias-*` 深浅色自适应）。左侧两个 Tab：**会话**（活跃列表 + 休眠列表）与**群聊**；右侧为消息气泡流 + 底部输入框 + 投递模式下拉（唤醒/介入）。
+- **双栏聊天面板**：注册于 `shell.overlay` slot 的悬浮面板（宽 680px、高 min(76vh,560px)，DSH 主题色 `--dsw-alias-*` 深浅色自适应）。**拖动头部可移动面板位置**（按住标题栏拖动，按钮区除外；位置在屏幕边界内钳制，关闭面板后重置为默认右上角）。左侧两个 Tab：**会话**（活跃列表 + 休眠列表）与**群聊**；右侧为消息气泡流 + 底部输入框 + 投递模式下拉（唤醒/介入）。
 - **活跃会话列表**：触发条件=打开面板或每 3 秒轮询 → 调 `remote.intercom.list()` → 列出全部活跃顶层对话，每项显示标题、忙碌/空闲徽标、📁 工作区路径；点击选中进入私聊视图，可查看该会话最近 80 条表面消息（每 2 秒轮询 `readConversation`）。
 - **休眠会话列表**：触发条件=同轮询 → 调 `remote.intercom.dormant()` → 灰显列出所有持久化但未运行的顶层历史会话（💤 休眠徽标、标题、工作区、按创建时间倒序）。选中后输入框提示「该会话休眠中，发送将唤醒它…」，按钮变为「**唤醒并发送**」。
 - **唤醒并发送**：对休眠目标发送 → `remote.intercom.wakeSend()` → 宿主恢复该会话 Agent 并投递 → 面板刷新，该会话移入活跃列表。
 - **群聊视图**：列出全部群（含自动群，显示人数徽标）；可新建群（输入名称）、查看成员、从活跃会话下拉中添加成员、移除成员、广播消息；群记录合并阅读（每条标出来源成员标题）。
 - **快捷按钮**：面板头部「＋ 新会话」（`workspaces.startSession()`）与「Fork」（`sessions.fork({sessionId})` 后打开新会话）——用于快速制造另一个可协作的顶层对话。
 
-### 模型工具（Host 半，13 个 `intercom_*`）
+### 模型工具（Host 半，14 个 `intercom_*`）
 
 1. `intercom_list_conversations`：列出全部**活跃**顶层对话（id/标题/状态/cwd）。
 2. `intercom_list_dormant_conversations`：列出全部**休眠**顶层对话（id/标题/cwd/createdAt，倒序）。
@@ -42,6 +42,7 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
 11. `intercom_broadcast`：向群内除发起者外的全部成员投递。
 12. `intercom_list_groups`：列出全部群（含自动群与成员数）。
 13. `intercom_read_group`：合并阅读群内各成员自 since_time 以来的对话内容（每段标成员标题）。
+14. `intercom_remove_group`：删除一个显式协作群（自动群 `__auto` 不可删）。
 
 ### 消息投递语义（面板与工具共用）
 
@@ -57,7 +58,7 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
 - **加载与集成方式**：两包都是 npm workspace 成员（glob `packages/*/*` 自动收录），通过 `packages/bundle/web-app/cordis.patch.yml` 补丁层注册组合行：宿主行 `{id: intercom, name: '@deepseek-ai/dsh-host-intercom'}`、客户端行 `{id: ui-intercom, name: '@deepseek-ai/dsh-client-ui-intercom'}`。客户端包同时声明 `dsh.client` 元数据（`platform: "web"` + `inject` 依赖面），由 `client-modules` 服务扫描后提供 `/plugins/<包名>/client.js` bundle 路由。Remote 客户端经 `api-remotes` 挂载：`packages/api/remotes/src/client/index.ts` 中 `import intercomRemote from '@deepseek-ai/dsh-host-intercom/remote'` 并加入 `ctx.remote.$mount(...)` 列表。
 - **依赖的核心 Service / Event / Tool**（全部经 `ctx.get` 或注入，名称需与 DSH 0.1.0-rc.5 一致）：
   - `static inject = ['tools', 'storageDomain']`（宿主服务声明，见 §5 时序坑）；
-  - `tools`：`ctx.tools.register(defineTool({...}))` 注册 13 个模型工具（`defineTool` 来自 `@deepseek-ai/dsh-tools`）；
+  - `tools`：`ctx.tools.register(defineTool({...}))` 注册 14 个模型工具（`defineTool` 来自 `@deepseek-ai/dsh-tools`）；
   - `storageDomain`：`defineDomain` + `facility.open(intercomDomain)` 做群持久化；
   - `agents`：`get/list/roots/create/resume` 管理活跃代理与恢复休眠会话（`resume({resumeSessionId})` 返回 `{agent}`）；
   - `sessionQuery`：`readSurface(sessionId)`（读表面事件做历史/回复轮询）与 `readTitle(sessionId)`（休眠会话标题）；
@@ -73,7 +74,7 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
 
 | 路径 | 职责 |
 | --- | --- |
-| `packages/host/intercom/src/index.ts` | IntercomGateway 服务类：11 个 Remote 方法、投递核心 `deliverTo`、休眠唤醒、13 个模型工具注册、事件监听、群/域持久化 |
+| `packages/host/intercom/src/index.ts` | IntercomGateway 服务类：11 个 Remote 方法、投递核心 `deliverTo`、休眠唤醒、14 个模型工具注册、事件监听、群/域持久化 |
 | `packages/host/intercom/src/types.ts` | 全部线上契约类型（`type` 别名：ConversationInfo/GroupInfo/MessageEntry/SendRequest/SendResult/WakeSendRequest/WakeSendResult/DormantConversation/…），被 Remote 参数/返回与工具 payload 共用 |
 | `packages/host/intercom/src/spec.ts` | storage-domain 声明：`intercomDomain = defineDomain({name:'intercom', version:0, global:{schema: intercomGlobalSchema, initial:{groups:{}}}, tables:{}})`，全局槽只存 `{groups: Record<groupId, {name, members[]}>}` |
 | `packages/host/intercom/lib/` | 构建产物：`index.js`（服务主包）、`spec.js`/`types.js`、`typert.host.{js,d.ts}`（TYPERT 注册）、`typert.remote-client.{js,d.ts}`（客户端远程代码 + 命名空间类型）、`types/*.d.ts` |
@@ -93,7 +94,7 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
 │   ├─ wakeSendInternal: persistence.list 校验 → agents.resume → deliverTo
 │   ├─ groupStore(Map) ←─ loadDomain/persist ──► storageDomain('intercom')
 │   ├─ titleCache / rateBuckets / spentWakes / outbox
-│   └─ 13 个 defineTool 注册到 tools 注册表（带 disposers）
+│   └─ 14 个 defineTool 注册到 tools 注册表（带 disposers）
 └───────────────────────────────────────────────────────────────┘
                           ▲ ctx.remote.intercom（Typert 信封 {ok,value?,error?}）
 ┌─ Client（浏览器）─────────────────────────────────────────────┐
@@ -130,7 +131,7 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
 ### 踩过的坑（复刻时务必遵守）
 
 - **`static inject = ['tools', 'storageDomain']` 不可省略**：最初没有依赖声明，服务 apply 可能先于两个提供方执行，守卫静默跳过工具注册与群加载（启动日志 `[intercom] tools/storageDomain service unavailable`），表现为“重启后工具消失”。声明 inject 后 Cordis 会等待就位再 apply。
-- **工具注册硬约束**（`ctx.tools.register(defineTool({...}))`）：所有 `parameters` 字段必须 `required: true`；`execute` 必须是 `async` 返回 Promise；`output.schema` 必须 `additionalProperties: false` 且**声明每个返回字段**；线上类型必须是 `type` 别名而非 `interface`（否则过不了 JsonValue 检查）。13 个工具的 disposers 收进数组并在 `ctx.effect(() => () => dispose(), ...)` 里统一回收。
+- **工具注册硬约束**（`ctx.tools.register(defineTool({...}))`）：所有 `parameters` 字段必须 `required: true`；`execute` 必须是 `async` 返回 Promise；`output.schema` 必须 `additionalProperties: false` 且**声明每个返回字段**；线上类型必须是 `type` 别名而非 `interface`（否则过不了 JsonValue 检查）。14 个工具的 disposers 收进数组并在 `ctx.effect(() => () => dispose(), ...)` 里统一回收。
 - **typert 工件必须由上游生成器产出**：在 harness 工作区内跑根级 `pnpm exec tsdown --env.DSH_BUILD_FACE host`（根 tsdown 配置注入 `typertPlugin({mode:'workspace', faces:['host']})`），它会为所有含 Remote 的包生成 `lib/typert.host.*` 与 `lib/typert.remote-client.*`；手写这些文件极易与生成器格式漂移。`lib/typert.host.d.ts` 只需 `export declare const TYPERT: unknown`（生成器风格），方法级类型在 `typert.remote-client.d.ts`。
 - **客户端 bundle 包装**：客户端包 tsdown 配置必须委托上游 `clientBundle` 预设（`packages/client/tsdown.client.ts`），它产出 `window.__ModuleLoader__.load({id, factory})` 的 CJS 包并跑“bundle 纯净性门禁”（跨插件值导入直接构建失败；类型导入被擦除不受限）。用裸 `defineConfig` 重建会丢掉包装，浏览器加载即失效。
 - **api-remotes 客户端 bundle 必须重建**：新增 Remote 方法后，`packages/api/remotes/lib/client.js` 里内联的是旧版 remote 契约，不重建则浏览器侧根本没有新方法。
@@ -162,7 +163,7 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
    ```
    （修改过 `src/` 时，typert 契约改跑根级 `pnpm exec tsdown --env.DSH_BUILD_FACE host` + `--env.DSH_BUILD_FACE client` 全量生成。）
 4. **重启后台**（`pnpm dsh web`）并刷新页面。
-5. **验证**：侧栏出现「通信中心」入口，面板列出活跃会话与 💤 休眠会话；`pnpm exec tsx scripts/verify-cordis-config.ts` 全绿（无 resolution 报错）；新开一个对话，工具列表包含 13 个 `intercom_*`。
+5. **验证**：侧栏出现「通信中心」入口，面板列出活跃会话与 💤 休眠会话；`pnpm exec tsx scripts/verify-cordis-config.ts` 全绿（无 resolution 报错）；新开一个对话，工具列表包含 14 个 `intercom_*`。
 
 ## 7. 已知边界与注意事项
 
@@ -182,6 +183,6 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
 - [ ] 对空闲对话发消息：目标立刻开新回合处理；对忙碌对话：排队不打断；对子代理 id 发送被拒绝并提示走 `send_message`。
 - [ ] 跨工作区投递被拒；Windows 下大小写不一致的同目录不被误判。
 - [ ] 建群、加/删成员、广播、合并读群记录全部可用；重启后群（含自动群）仍在。
-- [ ] 新开对话的工具列表包含 13 个 `intercom_*` 工具，逐个可调用且输出 schema 校验通过。
+- [ ] 新开对话的工具列表包含 14 个 `intercom_*` 工具，逐个可调用且输出 schema 校验通过。
 - [ ] `verify-cordis-config.ts` 全绿；`tsc -b tsconfig.host.json` 与 `tsconfig.client.json` 无错；客户端 bundle 以 `window.__ModuleLoader__.load` 开头。
 - [ ] `intercom_list_dormant_conversations` + `intercom_wake_send` 能唤醒一个真实历史会话并投递成功（延续工作场景端到端）。
