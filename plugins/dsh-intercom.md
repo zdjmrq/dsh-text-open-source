@@ -135,6 +135,7 @@ dsh-intercom 解决 DeepSeek Harness 里**多个顶层对话（父代理）之�
 - **客户端 bundle 包装**：客户端包 tsdown 配置必须委托上游 `clientBundle` 预设（`packages/client/tsdown.client.ts`），它产出 `window.__ModuleLoader__.load({id, factory})` 的 CJS 包并跑“bundle 纯净性门禁”（跨插件值导入直接构建失败；类型导入被擦除不受限）。用裸 `defineConfig` 重建会丢掉包装，浏览器加载即失效。
 - **api-remotes 客户端 bundle 必须重建**：新增 Remote 方法后，`packages/api/remotes/lib/client.js` 里内联的是旧版 remote 契约，不重建则浏览器侧根本没有新方法。
 - **会话工具表在会话创建时冻结**：装好插件后，**新开的对话**才有 `intercom_*` 工具；旧对话（含重启恢复的）看不到，属预期而非故障。
+- **唤醒休眠会话必须带上模型路由**：`agents.resume` 若不传 `agentOptions`（provider/model），agent 的 `options.model` 为 `undefined`，persona 模板 `{{model}}` 变量装配直接抛 "prompt variable {{model}} has no value for this assembly (deployment:persona)"，被唤醒的会话整回合失败。官方 Web 恢复路径（api-proxy）总是传模型，唤醒路径必须同样处理：优先读目标会话自己日志里最新的 `request/header` 事件（`sessionPersistence.inspect` 拿原始事件，取 `data.header.config`），读不到再回退 `ctx.agentDefaultModel.currentSelection()`（部署默认）——恢复会话自己的模型，绝不指定部署没有的模型。`AgentOptions` 的 provider/model 是可选的，不传就是 `undefined`。
 - **常量**：`MAX_TEXT=8000`、`MAX_WAKES=3`、`RATE_LIMIT=10`（/60s）、面板轮询 3s/历史 2s、readConversation 默认 `maxEvents=80`、工具文本输出截断 16000。
 
 ## 6. 集成与安装
