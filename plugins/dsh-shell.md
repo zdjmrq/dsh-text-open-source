@@ -8,9 +8,10 @@
 > 不挂载在 DSH 进程里；它通过 **HTTP 端口（复用/拉起 DSH web 服务）+ 页面 DOM 注入** 与 DSH
 > 交互。复刻时请按 Electron 应用形态实现，不要硬套 Cordis 插件框架。
 >
-> **对应源码**：https://github.com/zdjmrq/dsh-shell（描述基于 commit `539e866794aeb02c46f1b1062f3bb2db81c299ff`）｜许可证：MIT
+> **对应源码**：https://github.com/zdjmrq/dsh-shell（描述基于 commit `539e866794aeb02c46f1b1062f3bb2db81c299ff`；
+> 2026-08-16 起在体验增强层新增**智能右键菜单**与**消息重新编辑**两项能力，见第 2 / 5.15 / 5.16 节）｜许可证：MIT
 >
-> **最近更新**：2026-08-14
+> **最近更新**：2026-08-16
 
 ## 1. 插件概述
 
@@ -18,10 +19,11 @@ dsh-shell 是一个 Windows 桌面壳：把 DeepSeek Harness 的 Web UI（默认
 包进一个原生桌面窗口，双击即用，解决"每次都要开终端敲 `pnpm dsh web` 再开浏览器"的痛点。
 它的核心定位是**轻量壳、不碰官方 UI**——只注入窗口边框层（自绘顶栏：拖动条 + 全屏/最小化/
 最大化/关闭按钮），不修改 DSH 的任何页面结构或 UI 面板，皮肤、侧边栏、会话插件等全部照常工作。
-启动时自动探测端口：已有 DSH 服务在跑就直接复用开窗（关窗不影响原服务），没有则按配置自动拉起
-服务、就绪后开窗，关窗只杀掉自己启动的进程。它还作为 dsh-attention-notifier 的**呈现端**：
-消费配套插件的 `GET /dsh-attention` 契约，用 Windows 任务栏按钮闪烁（微信新消息同款）提醒
-"需要介入 / 一轮工作完成"。
+在边框层之外，它还带一层**体验增强**（智能右键菜单、用户消息重新编辑），同样是 DOM 注入实现、
+不修改 DSH 任何源码。启动时自动探测端口：已有 DSH 服务在跑就直接复用开窗（关窗不影响原服务），
+没有则按配置自动拉起服务、就绪后开窗，关窗只杀掉自己启动的进程。它还作为 dsh-attention-notifier
+的**呈现端**：消费配套插件的 `GET /dsh-attention` 契约，用 Windows 任务栏按钮闪烁（微信新消息同款）
+提醒"需要介入 / 一轮工作完成"。
 
 ## 2. 功能规格
 
@@ -46,6 +48,14 @@ dsh-shell 是一个 Windows 桌面壳：把 DeepSeek Harness 的 Web UI（默认
     或聚焦但超过 8 秒没有任何操作——任务栏按钮就闪烁（闪几轮后常驻淡红，微信同款）；
   - **回到对话**（窗口聚焦，或窗口内任意鼠标移动/点击/滚轮/键盘操作）立即熄灭；
   - 完成事件若发生在你正活跃地看着窗口时，视为已看到，**不闪**。
+- **智能右键菜单（体验增强）**：页面内右键弹出原生菜单，按上下文动态生成：
+  - **有选中文字** → `复制`、`剪切`（可编辑处）+ 分隔线 + `发送到新对话`（在当前工作区
+    **新建会话**，把选中文字写入输入框并聚焦，**不自动发送**）；
+  - **无选中、点在输入框** → `粘贴`、`剪切`、`复制`、`撤销`（按当前是否可操作动态取舍）；
+  - **无选中、非输入框** → `复制`（可复制时）或不弹菜单。
+- **消息重新编辑（体验增强）**：每条**用户消息**的操作条（复制键旁边）新增「重新编辑」按钮，
+  点击把该条消息正文**召回输入框**并聚焦、光标置尾（原消息保留，编辑后重发）；打断进行中的任务后，
+  即可直接对最后一条消息改发，省去复制粘贴。按钮复用 DSH 操作键样式，随主题变色。
 - **启动诊断**：所有启动/停止细节记录在 exe 旁边的 `dsh-shell.log`；找不到 DSH checkout /
   服务命令启动失败 / 服务提前退出 / 等待就绪超时（120 秒）→ 自绘错误页给出 config 位置、
   排查命令与日志路径。
@@ -63,8 +73,8 @@ dsh-shell 是一个 Windows 桌面壳：把 DeepSeek Harness 的 Web UI（默认
   通过两个薄契约交互：
   1. **HTTP 层**：探测 / 复用 / 拉起 `http://127.0.0.1:3080`；消费 `GET /dsh-attention`
      （由配套插件 dsh-attention-notifier 挂在 DSH 宿主 `webServer` 上）；
-  2. **页面 DOM 层**：`dom-ready` 后 `insertCSS` + `executeJavaScript` 注入顶栏与注意力轮询器，
-     不修改 DSH 任何源码。
+  2. **页面 DOM 层**：`dom-ready` 后 `insertCSS` + `executeJavaScript` 注入顶栏、注意力轮询器
+     与体验增强（右键菜单入口、消息重新编辑按钮），不修改 DSH 任何源码。
 - **进程模型与安全基线**：`contextIsolation: true`、`nodeIntegration: false`、
   `backgroundThrottling: false`（最小化/遮挡时页面定时器不节流，注意力轮询必须照常跑）；
   preload 只暴露 `window.dshShell` 窗口控制桥，不暴露任何 Node 能力；渲染进程经
@@ -73,7 +83,10 @@ dsh-shell 是一个 Windows 桌面壳：把 DeepSeek Harness 的 Web UI（默认
   `spawn('cmd.exe', ['/d','/s','/c', command], { windowsHide: true })`；停止用
   `taskkill /pid <pid> /T /F` 杀整棵进程树；单实例用 `app.requestSingleInstanceLock()`；
   全屏/最大化/焦点状态经 `webContents.send` 推给页面；任务栏提醒用 `win.flashFrame(true/false)`
-  （Windows 上有限次数闪烁 → 按钮停留高亮，即"常驻淡红"）。
+  （Windows 上有限次数闪烁 → 按钮停留高亮，即"常驻淡红"）。体验增强：右键菜单用
+  `webContents.on('context-menu')` + `Menu.buildFromTemplate`（复制/剪切/粘贴/撤销用内置 `role`
+  原生执行，"发送到新对话" 经 `executeJavaScript` 调注入函数）；消息重新编辑由注入脚本操作
+  DSH 页面 DOM（受控 textarea 用原生 value setter 写入）。
 - **关键外部依赖**：`electron` ^42.0.0、`electron-builder` ^26.0.0（devDependencies）；
   运行时系统能力：`cmd.exe`、`taskkill`、Windows 任务栏 `flashFrame`、NSIS 安装器；
   启动命令要求 `pnpm` 在 PATH（默认 `pnpm dsh web`）。
@@ -92,9 +105,9 @@ dsh-shell 是一个 Windows 桌面壳：把 DeepSeek Harness 的 Web UI（默认
 
 | 路径 | 职责 |
 | --- | --- |
-| `main.js` | 主进程全部逻辑（~569 行）：配置加载与解析、日志、端口探测、服务拉起/停止、窗口创建、顶栏 CSS/JS 注入、注意力提醒主进程侧、快捷键、外链策略、应用生命周期 |
+| `main.js` | 主进程全部逻辑（~750 行）：配置加载与解析、日志、端口探测、服务拉起/停止、窗口创建、顶栏 CSS/JS 注入、注意力提醒主进程侧、智能右键菜单、快捷键、外链策略、应用生命周期 |
 | `preload.js` | `contextBridge` 暴露 `window.dshShell` 最小窗口控制桥（21 行）：minimize / toggleMaximize / close / toggleFullscreen / onFullscreenChange / onMaximizeChange / setAttention / onFocusChange |
-| `config.json` | 运行时配置：`port`、`start.cwd`、`start.command`、`window.overlay`、`window.overlayHeight`；打包时作为 `extraFiles` 放到 exe 旁边供用户改 |
+| `config.json` | 运行时配置：`port`、`start.cwd`、`start.command`、`window.overlay`、`window.overlayHeight`；打包时作为 `extraFiles` 放到 exe 旁供用户改 |
 | `package.json` | 元信息 + electron-builder 打包配置（win: dir + nsis，x64；appId `local.dsh.shell`，productName `DSH Desktop`） |
 | `assets/icon.png` | 应用窗口/任务栏/快捷方式图标（打包 icon 与窗口 icon） |
 | `assets/icon-attn.png` | **存在但当前代码未引用**（待确认：疑似任务栏叠加图标预留，现实现用 flashFrame 且 `setOverlayIcon(null,'')` 恒清除） |
@@ -111,7 +124,8 @@ dsh-shell 是一个 Windows 桌面壳：把 DeepSeek Harness 的 Web UI（默认
 │  main.js（主进程, Node.js）                                                             │
 │   ├─ 配置加载/日志/端口探测(net.connect)/服务拉起(cmd.exe)/停服(taskkill)/单实例锁        │
 │   ├─ BrowserWindow（frame:false, contextIsolation:true, backgroundThrottling:false）     │
-│   │    ├─ dom-ready → insertCSS(顶栏样式 + padding-top) + executeJavaScript(顶栏DOM/轮询)│
+│   │    ├─ dom-ready → insertCSS + executeJavaScript(顶栏/注意力轮询/体验增强注入)        │
+│   │    ├─ context-menu → Menu(复制/剪切/粘贴/撤销 + 发送到新对话)                        │
 │   │    ├─ ipcMain 收: dsh:minimize / toggle-maximize / close / toggle-fullscreen        │
 │   │    │              dsh:attention → flashFrame(true|false)                            │
 │   │    └─ webContents.send 推: fullscreen-changed / maximized-changed / focus-changed    │
@@ -244,7 +258,11 @@ dsh-shell 是一个 Windows 桌面壳：把 DeepSeek Harness 的 Web UI（默认
 
 `app.requestSingleInstanceLock()` 失败 → `app.quit()`；`second-instance` → 最小化则 restore，
 再 show + focus。`app.setAppUserModelId('local.dsh.shell')`（Windows 任务栏行为所需）。
-`window-all-closed` → stopServer + quit；`before-quit` → stopServer；`closed` → stopAttentionFx + win=null。
+`window-all-closed` → stopServer + quit；`before-quit` → stopServer；`closed` → **仅置空
+`win=null`**（'closed' 触发时窗口已销毁，不能再调 `flashFrame`/`setOverlayIcon` 等窗口方法，
+否则抛 `Object has been destroyed`）。`stopAttentionFx` / `renderAttention` 及全部 ipc 窗口操作
+均带 `win.isDestroyed()` 守卫；另注册 `process.on('uncaughtException')` 兜底——异常写入
+`dsh-shell.log` 而不弹 Electron 崩溃对话框。
 
 ### 5.12 打包配置
 
@@ -270,7 +288,43 @@ electron-builder：`files` 仅 `main.js / preload.js / assets/**/*`；`extraFile
 - `GET /dsh-attention` 契约字段（`intervention` / `running` / `completedId` / `completedAt`）
   由配套插件定义，DSH 本身不提供该端点；
 - 默认端口 3080 与启动命令 `pnpm dsh web`（DSH 启动方式变化时需改 config.json）；
-- `backgroundThrottling:false` 仅在 overlay 模式设置（注意力轮询需要）。
+- `backgroundThrottling:false` 仅在 overlay 模式设置（注意力轮询需要）；
+- **体验增强依赖 DSH 页面 DOM 锚点**（实测）：`placeholder="给智能体发消息"`（输入框）、
+  `aria-label="新建会话"`、`aria-label="复制"`（消息操作键）与哈希类名（`gdEzaW_userRow` /
+  `gdEzaW_bubble` / `p-xYUq_actions` / `p-xYUq_action` / `osXY9a_root` 等）；DSH 改 UI 或构建哈希
+  变化时对应功能**静默失效**（渐进增强，不报错，需人工对齐锚点）。
+
+### 5.15 智能右键菜单（主进程）
+
+- **触发**：`win.webContents.on('context-menu')`，仅当 `getURL()` 以 `BASE_URL` 开头（启动/错误
+  data: 页不弹）。
+- **菜单构建 `buildContextMenu(params)`**：依据 `params.selectionText`（选中文字）、
+  `params.isEditable`（是否点在可编辑区）、`params.editFlags`（canCut / canCopy / canPaste /
+  canUndo）动态生成模板：
+  - 可编辑区 → `粘贴 / 剪切 / 复制 / 撤销`（各按 editFlags 可用性取舍）；
+  - 非可编辑且有选中 → `复制`；
+  - 有选中文字 → 追加分隔线 + `发送到新对话`。
+- 复制/剪切/粘贴/撤销用 `Menu` 内置 `role`（Chromium 原生执行，与系统行为一致）；无可用项或
+  无选中时返回 null（不弹菜单）；`menu.popup({ window })` 弹出。
+- **「发送到新对话」**：`executeJavaScript("window.__dshShellNewSession(<JSON 字符串>)")` 调页面
+  注入函数（见 5.16），失败仅 log，不弹错。
+
+### 5.16 消息重新编辑与发送到新对话（页面注入 OVERLAY_JS）
+
+- **DOM 锚点（实测，DSH 当前构建）**：输入框 `textarea[placeholder="给智能体发消息"]`（React 受控
+  组件）；「新建会话」`[aria-label="新建会话"]`；用户消息行 `.gdEzaW_userRow`，正文
+  `.gdEzaW_bubble`，操作条 `.p-xYUq_actions`，复制键 `button[aria-label="复制"]`；助手消息行
+  `.osXY9a_root`。锚点优先用 aria-label / placeholder 等稳定属性，哈希类名仅作辅助。
+- **fillComposer(text)**：受控 textarea 必须用**原生 value setter**
+  （`Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set`）写入，再派发
+  `input` / `change` 事件，不能只设 `.value`；随后聚焦 + 光标置尾。
+- **newSessionThenFill(text)**：点「新建会话」→ 轮询（120ms × 最多 40 次）等新输入框就绪
+  （值为空）→ `fillComposer(text)`；暴露为 `window.__dshShellNewSession` 供主进程右键菜单调用。
+- **installEditButtons()**：遍历 `.gdEzaW_userRow`，在操作条内复制键**前**插入「重新编辑」按钮
+  （复用 `.p-xYUq_action` 类跟随 DSH 操作键样式/主题，`aria-label="重新编辑"` 作幂等标记）；
+  点击 → 读 `.gdEzaW_bubble` 正文 → `fillComposer`（原消息保留）。
+- **动态渲染**：防抖（400ms）`MutationObserver` 监听 body 子树，为新消息增量安装按钮。
+- **幂等与降级**：已带 `.dsh-edit-btn` 的行跳过；锚点缺失 → 对应功能静默禁用，不影响壳本体。
 
 ## 6. 集成与安装
 
@@ -294,7 +348,10 @@ electron-builder：`files` 仅 `main.js / preload.js / assets/**/*`；`extraFile
    `cordis.patch.yml` 一行即可，所有预设/会话生效），重启 DSH 后验证
    `Invoke-WebRequest http://127.0.0.1:3080/dsh-attention` 返回 JSON；然后失焦窗口跑一轮工作，
    观察任务栏闪烁；回到对话应立即熄灭。
-8. **排查**：启动异常看 exe 旁 `dsh-shell.log`（开发模式看项目根）。
+8. **（推荐）验证体验增强**：选中一段文字右键 → 菜单含 `复制` + `发送到新对话`，点击后者 →
+   当前工作区新建会话且输入框已填入选中文字（未自动发送）；点在输入框右键 → 出现 `粘贴` 等；
+   任意用户消息复制键旁有「重新编辑」按钮，点击 → 正文召回输入框；打断任务后直接改发。
+9. **排查**：启动异常看 exe 旁 `dsh-shell.log`（开发模式看项目根）。
 
 ## 7. 已知边界与注意事项
 
@@ -317,6 +374,11 @@ electron-builder：`files` 仅 `main.js / preload.js / assets/**/*`；`extraFile
 - **不自动重试**：服务启动失败/超时只给错误页与日志，需用户手动关闭重开。
 - **完成提醒的确认窗口**：完成事件发生 2.5 秒内若新一轮已开始（`running` 为 true），该次完成
   的闪烁会被丢弃（页面侧实现细节，属边界行为）。
+- **体验增强为 DOM 层增强，随 DSH 前端更新漂移**（见 5.14）：锚点失效时功能静默禁用，不报错、
+  不影响壳本体；需人工对齐锚点。
+- **右键菜单仅壳内生效**：它是 Electron 原生菜单，浏览器直接打开 `127.0.0.1:3080` 时没有此菜单。
+- **重新编辑召回的是渲染后文本**：消息正文含 Markdown（代码块/加粗）时从 DOM 召回会丢失格式；
+  纯文本 prompt 无影响。
 
 ## 8. 复刻验收标准（给复刻 AI 的检查单）
 
@@ -332,6 +394,12 @@ electron-builder：`files` 仅 `main.js / preload.js / assets/**/*`；`extraFile
       排查命令与日志路径；`dsh-shell.log` 有对应记录
 - [ ] 装 dsh-attention-notifier 后：失焦窗口 + 介入/完成 → 任务栏闪烁（有限次后常驻淡红）；
       聚焦或窗口内操作 → 立即熄灭；正看着窗口时完成不闪
+- [ ] 右键：选中文字 → 菜单含 `复制` + `发送到新对话`；点击 → 当前工作区新建会话且输入框已
+      填入选中文字（未自动发送）
+- [ ] 右键输入框（无选中）→ 菜单含 `粘贴 / 剪切 / 复制 / 撤销`
+- [ ] 每条用户消息复制键旁有「重新编辑」按钮；点击 → 正文召回输入框、聚焦、原消息保留
+- [ ] 打断任务后对最后一条用户消息点「重新编辑」→ 输入框出现原 prompt，可直接改发
+- [ ] 注入幂等：页面刷新/HMR 后编辑按钮不重复出现
 - [ ] 外链在系统默认浏览器打开，壳内不导航、不新开窗口
 - [ ] 结构/集成点与描述一致：main/preload/config 职责划分、`GET /dsh-attention` 契约字段、
       config 解析优先级（start.cwd → DSH_CHECKOUT → 并排自动探测）与默认值
