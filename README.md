@@ -43,7 +43,7 @@
 | dsh-careful-full-access | [plugins/dsh-careful-full-access.md](plugins/dsh-careful-full-access.md) | [dsh-careful-full-access](https://github.com/zdjmrq/dsh-careful-full-access) | 插件 + 宿主补丁 | 命令守卫：静态分级 + WhatIf 预演 + model-check 复核，把误删挡在执行前 |
 | dsh-restart-plugin | [plugins/dsh-restart-plugin.md](plugins/dsh-restart-plugin.md) | [dsh-restart-plugin](https://github.com/zdjmrq/dsh-restart-plugin) | Cordis Client 半 | 设置页一键「关闭后台服务 / 刷新前端」，刷新保留热插件 |
 | dsh-plugin-suite | [plugins/dsh-plugin-suite.md](plugins/dsh-plugin-suite.md) | [dsh-plugin-suite](https://github.com/zdjmrq/dsh-plugin-suite) | 改动切片套件 | 定制插件套件（局部 fork）：只带改动切片 + 累计补丁，收纳需动宿主的插件 |
-| dsh-user-plugins-manager | [plugins/dsh-user-plugins-manager.md](plugins/dsh-user-plugins-manager.md) | [dsh-user-plugins-manager](https://github.com/zdjmrq/dsh-user-plugins-manager) | Cordis 双半 | 设置→插件 新增「用户插件」页：统一管理散件 / npm 包 / 运行树插件 |
+| dsh-pluginmanager | [plugins/dsh-user-plugins-manager.md](plugins/dsh-user-plugins-manager.md) | [dsh-user-plugins-manager](https://github.com/zdjmrq/dsh-user-plugins-manager) | Cordis 双半 | 设置→插件 新增「插件管理」页：原生三层 / 用户扩展 / 运行中临时，支持启停、卸载、补登记、描述编辑 |
 | dsh-attention-notifier | [plugins/dsh-attention-notifier.md](plugins/dsh-attention-notifier.md) | [dsh-attention-notifier](https://github.com/zdjmrq/dsh-attention-notifier) | Cordis 宿主半 | 微信式任务栏提醒（判定端），配合 dsh-shell 呈现 |
 | dsh-shell | [plugins/dsh-shell.md](plugins/dsh-shell.md) | [dsh-shell](https://github.com/zdjmrq/dsh-shell) | Electron 桌面壳 | 把 DSH Web UI 装进原生窗口，只注入窗口边框层，不碰页面 UI |
 
