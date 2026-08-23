@@ -1,17 +1,17 @@
-# 【文字开源】dsh-careful-full-access — 只在 careful-full-access 模式生效的命令守卫：静态四档分级 + WhatIf 预演 + model-check 三问复核 + 红色人工确认 + 轮转审计
+# 【文字开源】dsh-careful-full-access — 只在 careful-full-access 模式生效的命令守卫：静态四档分级 + WhatIf 预演 + model-check 三问复核 + 中文人工确认 + 轮转审计
 
 > **这是什么**：本文件是「文字开源」描述，不是代码。把本文件全文粘贴给你 DSH 里的 AI 会话，
 > AI 即可为你复刻出功能相同的插件；你也可以阅读本文件理解其原理，并自行微调需求。
 >
-> **对应源码**：https://github.com/zdjmrq/dsh-careful-full-access （描述基于 commit `07a00f1ad2578d7137db62c106fb6adcd3bd9633`）｜许可证：MIT
+> **对应源码**：https://github.com/zdjmrq/dsh-careful-full-access （描述基于 commit `b40eac498b7f1ecf781ba5587a8c5bf859ba6fb0`）｜许可证：MIT
 >
-> **最近更新**：2026-08-16
+> **最近更新**：2026-08-23
 
 ---
 
 ## 1. 插件概述
 
-这是 DeepSeek Harness（DSH）的一个 **Host 半命令守卫插件**，只在沙箱模式 `careful-full-access` 下生效：对每一条 `pwsh`/`bash` 工具调用，在派发前做「静态四档分级 →（pwsh 删除）WhatIf 干跑解析真实删除范围 → model-check 三问复核 → 灾难级红色人工确认 → 双重审计」的完整管线，目标是把「解析错误的删除命令误删整个盘 / 整个工作区」这一事故挡在执行之前。
+这是 DeepSeek Harness（DSH）的一个 **Host 半命令守卫插件**，只在沙箱模式 `careful-full-access` 下生效：对每一条 `pwsh`/`bash` 工具调用，在派发前做「静态四档分级 →（pwsh 删除）WhatIf 干跑解析真实删除范围 → model-check 三问复核 → 中文人工确认（灾难级红色显示）→ 双重审计」的完整管线，目标是把「解析错误的删除命令误删整个盘 / 整个工作区」这一事故挡在执行之前。
 
 `careful-full-access` 是 DSH 核心的沙箱枚举值，**第三方插件无法自行添加**，因此本仓库同时附带 `patches/careful-full-access.patch`（对 DSH 源码树的核心补丁，与插件代码版本配套）。插件代码与补丁的分工：**补丁负责"注册模式与接线"**（第四档 `SandboxMode`、权限预设、UI 档位与图标、审批红色标注链路、工作区根 ACL 防删、`cordis.patch.yml` 挂载行），**src/ 负责"模式内的一切行为"**（分级、预演、复核、确认、审计）。两者缺一不可，共同构成完整功能。适用场景：需要"全权限体验"（文件访问不受限）但又不愿放弃删除防护的 AI 编码工作；配套仓库见 [dsh-plugin-suite](https://github.com/zdjmrq/dsh-plugin-suite)（把本插件与 dsh-restart-plugin 合并为累计 `install.patch`）与官方上游 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)。
 
@@ -44,12 +44,12 @@
 - **解析目标**：从输出解析 `What if: ... on target "..."` 行（英文与 zh-CN 本地化 `假设:` 两种格式）。
 - **结果分支**：
   - 干跑证明删除零目标（`zero-targets`）→ **直接放行**，且不再调用 model-check。
-  - 解析到具体范围（`previewed`）→ 生成有界摘要（对象总数 / 文件数 / 目录数 / 前 N 个目标样例 / 截断标记），附给 model-check 与人工确认。
+  - 解析到具体范围（`previewed`）→ 生成准确对象总数 / 文件数 / 目录数；人工审批显示完整目标清单，或明确标为“仅显示前 N 个、其余未显示”的有界清单，不把样例误称为完整范围。
   - 干跑解析出**受保护根**（`protected-hit`）→ 档位**升级为 disaster**，走红色人工确认。
-  - 干跑不可用（spawn 失败、超时、非零退出且无目标、枚举失败）→ `unpreviewable`，失败细节附在人工确认理由中。
-- **递归目录目标补枚举**：WhatIf 对目录只打印顶层，故对解析出的目录目标再跑一次**只读子树枚举**（`Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue`），把子文件/子目录数并入摘要，样例上限默认 10。
+  - 干跑不可用（spawn 失败、超时、非零退出且无目标、枚举失败）→ `unpreviewable`；审批明确说明无法准确列出实际文件，且“缺少清单不表示不会删除文件”。
+- **递归目录目标补枚举**：WhatIf 对目录只打印顶层，故对解析出的目录目标再跑一次**只读子树枚举**（`Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue`）。对象计数包含顶层目标目录及其子文件／子目录；样例上限默认 10，只要清单未覆盖全部对象就标记截断。
 - **副作用权衡（文档化坑）**：WhatIf 只抑制 `ShouldProcess` 的输出与执行，删除语句之前的非删除副作用**会真实执行**——这是"让 shell 自己说真话"的代价。
-- bash **没有** WhatIf 等价物：复核不带解析出的范围摘要（文档化降级）。
+- bash **没有** WhatIf 等价物：审批在可用时列出命令中的字面目标表达式，并明确说明通配符、变量和递归目录的展开结果未经验证（文档化降级）。
 
 ### 2.4 model-check 三问复核
 
@@ -63,9 +63,11 @@
   - `assessment:"dangerous"`（模型自称危险）→ **一律人工确认**；disaster/unparseable 档带红色，elevated 档为普通 ask。
   - 不可用（无路由/无 completer/超时/外部中止/流错误/答案解析失败）→ **fail-closed 按 disaster 处理**：人工确认（红色），elevated 的确认文案档位显示为 unparseable。
 
-### 2.5 红色人工兜底（审批通道）
+### 2.5 中文人工兜底（灾难级红色显示）
 
-- `ask` 决策携带 `severity: 'danger'` 时：命令全文、档位标题（`DISASTER tier` / `unparseable (treated as disaster)`）、模型复核结论、预演摘要一并进入审批面板，以红色条带/边框/圆点突出（`data-approval-severity="danger"`）。
+- 每个 `ask` 的审批理由都用中文准确说明：准备执行的**命令全文**（JSON 引号保留空白与转义）、操作会怎样删除／覆盖数据、删除范围、中文风险级别、中文模型复核状态，以及“仅在命令和范围都符合预期时批准一次”的提醒。
+- 删除范围必须按证据强度表述：`previewed` 给出准确对象／文件／目录计数及完整或明确截断的目标清单；`protected-hit` 指出受保护根及其全部数据可能受影响但不伪造逐文件清单；`unpreviewable` 明说实际文件未知；格式化等非普通文件操作明说所指范围内数据都可能受影响；bash 只把字面路径称为“目标表达式”，不冒充已经展开的实际文件。
+- `ask` 决策携带 `severity: 'danger'` 时，审批面板以红色条带／边框／圆点突出（`data-approval-severity="danger"`）；elevated 档因模型判定危险而产生的普通 `ask` 仍使用相同中文正文，但不带灾难级红色标记。
 - 审批策略 `never` 时自动拒绝——该会话中被标记的命令不可执行。
 - 确认/拒绝结果通过工具管线正常落回（`allowed-once` 才执行）。
 
@@ -125,7 +127,7 @@
 | `src/types.ts` | 共享类型：`PwshReport`/`PreviewOutcome`/`GuardTier`/`SpawnResult`/`Spawner` 等 |
 | `patches/careful-full-access.patch` | 宿主核心补丁（见 2.8），相对上游 commit `47f943859` 生成 |
 | `harness/package.json` / `harness/tsconfig.json` | 树内安装骨架：包名 `@deepseek-ai/dsh-careful-full-access`、`workspace:^` 依赖、树式 tsconfig 引用 |
-| `tests/*.spec.ts` | vitest 单元 + 集成测试（独立仓库 227 通过 + 1 按需跳过；树内 228 全过、100% 覆盖） |
+| `tests/*.spec.ts` | vitest 单元 + 集成测试（独立仓库 237 通过 + 1 按需跳过；树内聚焦审批／预演测试 73 通过且相关文件 100% 覆盖） |
 | `package.json` / `tsconfig.json` / `vitest.config.ts` | 独立仓库自验证构建配置（tsc 零错误、vitest run） |
 
 一次判定的调用关系（pwsh 路径）：
@@ -143,7 +145,7 @@ tools/pre-execute (waterfall)
             ├─ 家族含 delete？ ──> PreviewRunner（WhatIf 干跑 → 子树枚举）
             │     ├─ zero-targets ────────────────> allow（不调模型）
             │     ├─ protected-hit ────────────────> 档位升 disaster
-            │     ├─ previewed → scopeSummary / unpreviewable → previewDetail
+            │     ├─ previewed → scopeSummary + deletionPreview / unpreviewable → deletionPreview
             ├─ ModelCheckRunner（llm.stream 三问）
             │     ├─ not-intended ──> deny（附模型解释）
             │     ├─ safe ──> elevated: allow；disaster/unparseable: ask(severity:'danger')
@@ -170,7 +172,8 @@ bash 路径同构，但无 AST、无预演（仅词法分级 → model-check →
 - **AST 分析脚本（ANALYZER_SCRIPT）**：`$env:DGUARD_CMD` 取命令（命令走环境变量、不跨命令行，无引号注入面）→ `[Parser]::ParseInput($cmd, [ref]$tokens, [ref]$errors)` → `$ast.FindAll({$n -is [CommandAst]}, $true)` 遍历所有命令，收集 verb、字面字符串、可展开字符串、变量、参数 → 另用正则找 `.NET` 删除 member calls → 输出一行压缩 JSON（`{ok, parseErrors, commands, memberCalls}`）。**只解析绝不执行**（`$ErrorActionPreference='Stop'`）。
 - **AST 报告的容错读取**：`parsePwshReport` 只取**最后一行**非空输出做 JSON 解析，逐字段校验（数组截断上限：命令数组项 64、memberCalls 16），恶意/截断输出 fail-closed 为 `ok:false`。
 - **WhatIf 干跑**：`PREVIEW_SCRIPT` = `$WhatIfPreference = $true` + `$ErrorActionPreference='Continue'` + `$ProgressPreference='SilentlyContinue'` 后拼接原命令；正则解析 `What if: ...operation "X" on target "Y"`（英文）与 `假设: 正在目标"Y"上执行操作"X"`（zh-CN）。**注意**：干跑退出码非 0 且无目标 → 判 `unpreviewable`（不是 zero-targets）。
-- **子树枚举脚本**：对每个解析出的目录目标 `Get-ChildItem -LiteralPath -Recurse -Force -ErrorAction SilentlyContinue` 计数文件/目录、取前 10 个样例、标记截断；目标不存在则标 `missing` 跳过。
+- **子树枚举脚本**：对每个解析出的目录目标 `Get-ChildItem -LiteralPath -Recurse -Force -ErrorAction SilentlyContinue` 计数文件／目录、取前 10 个样例、标记截断；目标不存在则标 `missing` 跳过。枚举脚本只统计后代，因此引擎另外把每个存在的顶层目标目录计入目录数；最终只要 `objectCount > samples.length` 就强制标记截断。
+- **中文审批正文**：`confirmReason` 不直接拼接模型自由文本，而是把命令、操作类型、`PreviewOutcome`、档位和模型状态分别交给受控中文渲染函数；只有 WhatIf／枚举证实的对象才称为实际目标，无法预演时固定表述为未知范围。
 - **model-check 解析**：`parseModelAnswer` 依次尝试 ①原文 ②``` 代码围栏内文本 ③正则抽出的第一个 `{...}` 对象；必须 `intent ∈ {yes,no}`、`assessment ∈ {safe,dangerous}`、`explanation` 非空字符串才接受。
 - **git 分派**：首动词为 `git`/`git.exe` 时不再做通用动词扫描；跳过全局值选项后取第一个非选项 token 为子命令；`rm` 带 `--cached`/`--staged`/`-n`/`--dry-run` 非破坏，`reset` 仅 `--hard` 破坏，`clean` 恒破坏。
 - **受保护路径判定**：结构判定优先（盘符根 `^[A-Za-z]:\\$`、根通配 `^[A-Za-z]:\\?\*+(?:\.\*+)?$`、UNC `^\\\\[^\\]+\\([^\\]+)\\?$`、扩展根 `^\\\\\?\\[A-Za-z]:\\?$`、POSIX `/`）；注册表比对前做归一化（剥引号、剥尾随 `*` 与分隔符）+ Windows 形式大小写折叠（`isWindowsForm` 才 fold，POSIX 字节精确）；`isInside` 按子串 + 分隔符判定（`\` 或 `/` 按内容选择）。
@@ -214,27 +217,27 @@ bash 路径同构，但无 AST、无预演（仅词法分级 → model-check →
 
 - **必须由补丁提供的宿主改动**（描述基于补丁相对上游 `47f943859`——`Merge pull request #2519 from deepseek-harness/feat/npm-public`）：`SandboxMode` 第四档、`isUnconfinedMode`、`SANDBOX_MODES`、权限预设、`PreToolDecision.severity`、approval→api-proxy→client 的 severity 链路、`PermissionSelect` 档位与图标、`cordis.patch.yml` 挂载行、`base/package.json` 依赖、ACL 双 ACE、tsconfig 引用。上游前进后 `git apply` 可能不干净，需手工合并（改动点均为组合注册/依赖声明/tsconfig 引用）。
 - **插件侧只读的公开 API**（随 DSH 发布版变化）：`tools/pre-execute` 事件契约、`PreToolDecision` 形状、`sandboxPolicy.resolve` 返回、`llm` 服务 `stream`/`createUserMessage`、`session.append`、`systemPrompt.context`、`invariants.register`、`resolveDshHome`。仓库用**字符串比较**隔离了模式枚举漂移，其余 API 以 `package.json` 中 `peerDependencies`（`^0.1.0-rc.6` 系）为准。
-- **插件与补丁的版本配套**：补丁与 src/ 在同一仓库、同一 commit 维护（本次描述 commit `07a00f1ad`，补丁基线上游 `47f943859`）。
+- **插件与补丁的版本配套**：补丁与 src/ 在同一仓库、同一 commit 维护（本次描述 commit `b40eac498`，补丁基线上游 `47f943859`）。
 
 ## 6. 集成与安装
 
 > 对复刻 AI：请按本描述第 2–5 节生成等价实现（TypeScript 源码 + 补丁），再按下述步骤接入。
 
-1. **AI 产出**：`src/` 全部模块（含 `index.ts`/`engine.ts`/`lexer.ts`/`analyzer.ts`/`preview.ts`/`model-check.ts`/`tiers.ts`/`verbs.ts`/`protected.ts`/`git.ts`/`audit.ts`/`fingerprint.ts`/`invariant.ts`/`types.ts`）、`tests/`、`patches/careful-full-access.patch`、`harness/` 骨架（`package.json` + `tsconfig.json`）。独立自验证：`pnpm install && pnpm run typecheck && pnpm test`（对照：227 通过 + 1 按需跳过）。
+1. **AI 产出**：`src/` 全部模块（含 `index.ts`/`engine.ts`/`lexer.ts`/`analyzer.ts`/`preview.ts`/`model-check.ts`/`tiers.ts`/`verbs.ts`/`protected.ts`/`git.ts`/`audit.ts`/`fingerprint.ts`/`invariant.ts`/`types.ts`）、`tests/`、`patches/careful-full-access.patch`、`harness/` 骨架（`package.json` + `tsconfig.json`）。独立自验证：`pnpm install && pnpm run typecheck && pnpm test`（对照：237 通过 + 1 按需跳过）。
 2. **准备 DSH 源码树**：克隆官方上游 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)（补丁基线 `47f943859` 附近；上游已前进时手工合并，见 5.5）。
 3. **应用补丁**：`git apply patches/careful-full-access.patch`——注册模式/预设/UI/红色链路/ACL/挂载行。若你的树不含配套 restart 包，删除补丁中 `ui-settings-restart` 与 `packages/host/restart` 两条 tsconfig 引用（见 5.3 待确认项）。
 4. **放入包**：把 `src/`、`tests/` 复制到 `packages/guard/careful-full-access/`，用 `harness/package.json` 与 `harness/tsconfig.json` 替换该包骨架（`workspace:^` 依赖、树式引用）。
 5. **构建与重启**：仓库根 `pnpm install && pnpm run build`（或 `pnpm dsh web` 前构建），重启后端。
 6. **切换模式**：把会话权限切到 `careful-full-access`，守卫即对每条 `pwsh`/`bash` 调用生效。
 7. **验证**（见第 8 节检查单）：零风险冒烟 `Remove-Item -Recurse -Force Z:\`（不存在的盘符）→ 应出现灾难级复核、命令未执行；`git rm -r --cached src` → 直接放行；`Get-ChildItem C:\ws` → 放行且审计有 `decision: 'allow'`。
-8. **树内测试**（可选）：应用补丁的环境下全量 228 例（100% 行/分支/函数覆盖）；`DSH_GUARD_CORE_PATCH=1 pnpm test` 强制跑红色链路用例。
+8. **树内测试**（可选）：对 `engine.ts`、`preview.ts`、`index.ts` 运行聚焦测试与覆盖率，当前对照为 73 例通过且三文件行／分支／函数／语句 100%；`DSH_GUARD_CORE_PATCH=1 pnpm test` 可强制跑红色链路用例。
 
 **npm 方式暂不可用**：`dsh-careful-full-access` 未发布 npm；发布前需构建 `lib/`（`main`/`types` 指向 `lib/`），当前请使用源码树方式（待确认）。
 
 ## 7. 已知边界与注意事项
 
 - **`iex`/脚本块动态构造无法静态分析** → fail-closed 按 disaster（人工确认，`never` 下拒绝）。
-- **bash 无 WhatIf 等价物**：POSIX 上复核不带解析出的范围摘要；bash 也无 AST 精析（只靠词法）。
+- **bash 无 WhatIf 等价物**：POSIX 审批只能指出静态可见的字面目标表达式，并明确警告通配、变量与递归展开结果未知；bash 也无 AST 精析（只靠词法）。
 - **只有顶层 `git` 调用获得子命令分派**：管道或嵌套的 `git` 退回通用扫描，可能误读其子命令语义（宁可误报）。
 - **model-check 成本**：每条被标记命令消耗一次模型调用（延迟与 token），判断质量取决于复核模型——这正是 disaster 档与模型自称危险的命令**永远以人工收尾**的原因；`unavailable` 时 fail-closed 为人工。
 - **careful 模式本质是全权限**：文件访问不受沙箱限制，守卫是删除防护的**唯一**主防线；第二道防线是补丁的 ACL 双 ACE（工作区根本身删不掉），但守卫被绕过时其余文件仍无保护。
@@ -246,15 +249,16 @@ bash 路径同构，但无 AST、无预演（仅词法分级 → model-check →
 
 - [ ] **模式门控**：`workspace-write` 与 `danger-full-access` 模式下 `Remove-Item -Recurse -Force C:\` 原样执行、零守卫、零审计事件（对照 index.spec.ts「passes every other sandbox mode through」）。
 - [ ] **快速放行**：`Get-ChildItem C:\ws` 放行并产生 `command-guard/decision`（`decision:'allow'`）；`git rm -r --cached src` 放行（normal，不拉起 pwsh 辅助进程）。
-- [ ] **disaster 红色链路**：`Format-Volume D`（或 `Remove-Item -Recurse -Force Z:\` 冒烟）→ 档位 `disaster`、模型判 safe 后仍 `ask` 且 `severity:'danger'`，理由含 `DISASTER tier`；审批 `never` 时自动拒绝。
+- [ ] **disaster 红色链路**：`Format-Volume D`（或 `Remove-Item -Recurse -Force Z:\` 冒烟）→ 档位 `disaster`、模型判 safe 后仍 `ask` 且 `severity:'danger'`；理由用中文逐项写出命令全文、格式化／删除效果、可证实的范围或未知范围、灾难级与模型状态；审批 `never` 时自动拒绝。
+- [ ] **范围不夸大**：完整预演列出所有目标；超过样例上限时正文明确“仅显示前 N 个、其余未显示”；预演失败时明确“无法准确列出实际文件，缺少清单不表示不会删除文件”。
 - [ ] **模型否认即拒**：模型回 `{"intent":"no",...}` → 直接 `deny`，理由含模型自己的解释，不再人工确认。
 - [ ] **elevated 放行**：`Clear-RecycleBin -Force` 且模型判 safe → `allow`（`tier:'elevated'`, `modelCheck:'safe'`）。
 - [ ] **零目标预演放行**：干跑无目标 → `allow` 且**不调用** model-check（engine.spec.ts「allows zero-target previews」）。
 - [ ] **预演命中受保护根升级**：干跑解析出受保护根 → 档位升级 `disaster` 的红色 ask。
-- [ ] **bash 同构**：`rm -rf /` → `ask`、`tier:'disaster'`、红色；bash 无预演无 AST。
+- [ ] **bash 同构**：`rm -rf /` → `ask`、`tier:'disaster'`、红色；正文列出字面目标表达式 `"/"`，并声明没有 WhatIf、展开结果未经验证。
 - [ ] **审计双重写入**：轮转文件出现完整 JSONL 判定行；相同命令 TTL 内第二次仅追加 `{"event":"repeat","count":2}`；会话事件不超过 `sessionDecisionCap`（默认 20）。
 - [ ] **fail-closed**：AST 分析失败/模型不可用/超时/答案解析失败 → 一律人工确认（红色），绝不静默放行。
 - [ ] **提示注入**：`enablePrompt` 默认 true 时 systemPrompt 装配结果含 `Deletion discipline (enforced by the command guard`；false 时不含。
 - [ ] **补丁生效**：应用补丁后 `SandboxMode` 含 `careful-full-access`、UI 权限选择出现第四档（眼睛图标）、`cordis.patch.yml` 含 `id: command-guard` 挂载行、审批面板支持红色（`DSH_GUARD_CORE_PATCH=1` 下红色链路测试通过）、工作区根 ACL 为双 ACE（根无 DELETE）。
-- [ ] **测试对齐**：独立仓库 `pnpm run typecheck` 零错误、`pnpm test` 227 通过 + 1 按需跳过；树内 228 例、100% 覆盖。
+- [ ] **测试对齐**：独立仓库 `pnpm run typecheck` 零错误、`pnpm test` 237 通过 + 1 按需跳过；树内审批／预演聚焦测试 73 例通过，`engine.ts`、`preview.ts`、`index.ts` 100% 覆盖。
 - [ ] **结构/集成点**：模块划分、配置项默认值、事件名（`tools/pre-execute`、`command-guard/decision`）、插件名（`command-guard`）与挂载方式与本描述一致。

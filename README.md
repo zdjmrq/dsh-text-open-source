@@ -53,7 +53,7 @@
 | --- | --- | --- | --- | --- |
 | dsh-intercom | [plugins/dsh-intercom.md](plugins/dsh-intercom.md) | [dsh-intercom](https://github.com/zdjmrq/dsh-intercom) | Cordis 双半 | 顶层对话间通信中心：聊天面板 + `intercom_*` 工具（求助/协作/唤醒休眠会话） |
 | dsh-usage-balance | [plugins/dsh-usage-balance.md](plugins/dsh-usage-balance.md) | [dsh-usage-balance](https://github.com/zdjmrq/dsh-usage-balance) | Cordis Client 半 | 侧边栏「用量 / 余额」标签行 + 悬停详情卡 |
-| dsh-careful-full-access | [plugins/dsh-careful-full-access.md](plugins/dsh-careful-full-access.md) | [dsh-careful-full-access](https://github.com/zdjmrq/dsh-careful-full-access) | 插件 + 宿主补丁 | 命令守卫：静态分级 + WhatIf 预演 + model-check 复核，把误删挡在执行前 |
+| dsh-careful-full-access | [plugins/dsh-careful-full-access.md](plugins/dsh-careful-full-access.md) | [dsh-careful-full-access](https://github.com/zdjmrq/dsh-careful-full-access) | 插件 + 宿主补丁 | 命令守卫：静态分级 + WhatIf 预演 + model-check 复核，中文准确说明待批命令与删除范围 |
 | dsh-restart-plugin | [plugins/dsh-restart-plugin.md](plugins/dsh-restart-plugin.md) | [dsh-restart-plugin](https://github.com/zdjmrq/dsh-restart-plugin) | Cordis Client 半 | 设置页一键「关闭后台服务 / 刷新前端」，刷新保留热插件 |
 | dsh-plugin-suite | [plugins/dsh-plugin-suite.md](plugins/dsh-plugin-suite.md) | [dsh-plugin-suite](https://github.com/zdjmrq/dsh-plugin-suite) | 改动切片套件 | 定制插件套件（局部 fork）：只带改动切片 + 累计补丁，收纳需动宿主的插件 |
 | dsh-pluginmanager | [plugins/dsh-user-plugins-manager.md](plugins/dsh-user-plugins-manager.md) | [dsh-user-plugins-manager](https://github.com/zdjmrq/dsh-user-plugins-manager) | Cordis 双半 | 设置→插件 新增「插件管理」页：原生三层 / 用户扩展 / 运行中临时，支持启停、卸载、补登记、描述编辑 |
