@@ -51,6 +51,7 @@
 
 | 插件 | 文字开源描述 | 源码仓库 | 形态 | 一句话简介 |
 | --- | --- | --- | --- | --- |
+| dsh-chat-mode | [plugins/dsh-chat-mode.md](plugins/dsh-chat-mode.md) | [dsh-chat-mode](https://github.com/zdjmrq/dsh-chat-mode) | agent preset + 宿主/客户端补丁 | 「对话」ChatGPT 纯聊天模式：新会话按当前模式直开、模式小三角切换 DSH/对话，对话会话仅提问+搜索工具，专属 `$DSH_HOME/chat` 聊天工作区 |
 | dsh-intercom | [plugins/dsh-intercom.md](plugins/dsh-intercom.md) | [dsh-intercom](https://github.com/zdjmrq/dsh-intercom) | Cordis 双半 | 顶层对话间通信中心：聊天面板 + `intercom_*` 工具（求助/协作/唤醒休眠会话） |
 | dsh-usage-balance | [plugins/dsh-usage-balance.md](plugins/dsh-usage-balance.md) | [dsh-usage-balance](https://github.com/zdjmrq/dsh-usage-balance) | Cordis Client 半 | 侧边栏「用量 / 余额」标签行 + 悬停详情卡 |
 | dsh-careful-full-access | [plugins/dsh-careful-full-access.md](plugins/dsh-careful-full-access.md) | [dsh-careful-full-access](https://github.com/zdjmrq/dsh-careful-full-access) | 插件 + 宿主补丁 | 命令守卫：静态分级 + WhatIf 预演 + model-check 复核，中文准确说明待批命令与删除范围 |
